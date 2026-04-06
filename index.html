@@ -88,7 +88,7 @@
       <div class="recent-list" id="recent-list"></div>
     </div>
 
-    <div style="position: fixed; bottom: 12px; left: 0; right: 0; text-align: center; font-size: 11px; color: #475569;">v2024.0406.5</div>
+    <div style="position: fixed; bottom: 12px; left: 0; right: 0; text-align: center; font-size: 11px; color: #475569;">v2024.0406.6</div>
   </div>
 
   <!-- Render Screen -->
@@ -215,26 +215,32 @@
       }
       const reader = new FileReader();
       reader.onload = () => {
-        renderJSX(file.name, reader.result);
-        addRecent(file.name, reader.result);
+        const buffer = reader.result;
+        // Detect encoding from BOM
+        const bytes = new Uint8Array(buffer);
+        let encoding = 'utf-8';
+        if (bytes[0] === 0xFF && bytes[1] === 0xFE) encoding = 'utf-16le';
+        else if (bytes[0] === 0xFE && bytes[1] === 0xFF) encoding = 'utf-16be';
+        else if (bytes.length >= 2 && bytes[0] !== 0 && bytes[1] === 0) encoding = 'utf-16le'; // heuristic
+        const text = new TextDecoder(encoding).decode(buffer);
+        renderJSX(file.name, text);
+        addRecent(file.name, text);
       };
-      reader.readAsText(file);
+      reader.readAsArrayBuffer(file);
       fileInput.value = '';
     });
 
     // ── Clean code: fix smart quotes, BOM, invisible chars ──
     function cleanCode(code) {
       return code
-        .replace(/\r\n/g, '\n')           // Windows line endings
-        .replace(/\r/g, '\n')             // old Mac line endings
-        .replace(/^\uFEFF/, '')           // BOM
-        .replace(/[\u2018\u2019\u2032\u2035]/g, "'")  // smart/prime single quotes
-        .replace(/[\u201C\u201D\u2033\u2036]/g, '"')  // smart/prime double quotes
-        .replace(/\u2014/g, '--')         // em dash
-        .replace(/\u2013/g, '-')          // en dash
-        .replace(/\u00A0/g, ' ')          // non-breaking space
-        .replace(/[\u200B-\u200F\u2028\u2029\u202A-\u202F\u2060\uFEFF]/g, '') // invisible chars
-        .replace(/[^\x09\x0A\x0D\x20-\x7E\u00A1-\uFFFF]/g, ''); // strip remaining control chars
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .replace(/^\uFEFF/, '')
+        .replace(/\u0000/g, '')           // null bytes (UTF-16 misdecode)
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[\u201C\u201D]/g, '"')
+        .replace(/\u00A0/g, ' ')
+        .replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, '');
     }
 
     // ── Import processing ──
@@ -402,8 +408,8 @@
         renderRoot.innerHTML = '';
         const cleaned = cleanCode(code);
         const debugInfo = `원본 길이: ${code.length}자 | 클린 후: ${cleaned.length}자 | 변환 후: ${processedCode.length}자`;
-        const first200raw = code.substring(0, 200);
-        const first200cleaned = cleaned.substring(0, 200);
+        const first200raw = JSON.stringify(code.substring(0, 200));
+        const first200cleaned = JSON.stringify(cleaned.substring(0, 200));
         const errorBox = document.createElement('div');
         errorBox.className = 'error-box';
         errorBox.innerHTML = `
