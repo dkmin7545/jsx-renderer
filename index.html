@@ -88,7 +88,7 @@
       <div class="recent-list" id="recent-list"></div>
     </div>
 
-    <div style="position: fixed; bottom: 12px; left: 0; right: 0; text-align: center; font-size: 11px; color: #475569;">v2024.0406.4</div>
+    <div style="position: fixed; bottom: 12px; left: 0; right: 0; text-align: center; font-size: 11px; color: #475569;">v2024.0406.5</div>
   </div>
 
   <!-- Render Screen -->
@@ -400,15 +400,28 @@
 
       } catch (err) {
         renderRoot.innerHTML = '';
+        const cleaned = cleanCode(code);
+        const debugInfo = `원본 길이: ${code.length}자 | 클린 후: ${cleaned.length}자 | 변환 후: ${processedCode.length}자`;
+        const first200raw = code.substring(0, 200);
+        const first200cleaned = cleaned.substring(0, 200);
         const errorBox = document.createElement('div');
         errorBox.className = 'error-box';
         errorBox.innerHTML = `
           <h3>렌더링 실패</h3>
           <pre>${escapeHtml(err.message)}</pre>
-          <button class="source-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'">
-            변환된 코드 보기
+          <pre style="margin-top:8px;font-size:13px;color:#94a3b8;">${escapeHtml(debugInfo)}</pre>
+          <button class="source-toggle" style="margin-top:8px;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'">
+            원본 코드 (앞 200자)
           </button>
-          <div class="source-code"><pre>${escapeHtml(typeof processedCode !== 'undefined' ? processedCode : code)}</pre></div>
+          <div class="source-code"><pre>${escapeHtml(first200raw)}</pre></div>
+          <button class="source-toggle" style="margin-top:8px;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'">
+            클린 후 코드 (앞 200자)
+          </button>
+          <div class="source-code"><pre>${escapeHtml(first200cleaned)}</pre></div>
+          <button class="source-toggle" style="margin-top:8px;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'">
+            변환된 전체 코드
+          </button>
+          <div class="source-code"><pre>${escapeHtml(processedCode)}</pre></div>
         `;
         renderRoot.appendChild(errorBox);
       }
