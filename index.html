@@ -81,7 +81,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       파일 선택
     </label>
-    <input type="file" id="file-input" accept=".jsx,.tsx" style="display:none" />
+    <input type="file" id="file-input" accept="*/*" style="display:none" />
 
     <div class="recent" id="recent-section" style="display:none">
       <h2>최근 파일</h2>
@@ -205,6 +205,12 @@
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (!['jsx', 'tsx'].includes(ext)) {
+        alert('.jsx 또는 .tsx 파일만 지원합니다.\n선택한 파일: ' + file.name);
+        fileInput.value = '';
+        return;
+      }
       const reader = new FileReader();
       reader.onload = () => {
         renderJSX(file.name, reader.result);
