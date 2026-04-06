@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>JSX Renderer</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+
+  <!-- React -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel Standalone -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; }
+
+    /* Home screen */
+    .home { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100dvh; padding: 24px; gap: 32px; }
+    .home h1 { font-size: 24px; font-weight: 700; color: #f8fafc; }
+    .home p { font-size: 14px; color: #94a3b8; text-align: center; line-height: 1.5; }
+
+    .file-btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; max-width: 320px; padding: 18px 32px; border-radius: 16px; border: 2px dashed #334155; background: #1e293b; color: #e2e8f0; font-size: 17px; font-weight: 600; cursor: pointer; transition: all 0.2s; -webkit-tap-highlight-color: transparent; }
+    .file-btn:active { background: #334155; border-color: #60a5fa; }
+    .file-btn svg { width: 24px; height: 24px; stroke: #60a5fa; }
+
+    /* Recent files */
+    .recent { width: 100%; max-width: 320px; }
+    .recent h2 { font-size: 13px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+    .recent-list { display: flex; flex-direction: column; gap: 4px; }
+    .recent-item { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 10px; background: #1e293b; cursor: pointer; transition: background 0.15s; -webkit-tap-highlight-color: transparent; }
+    .recent-item:active { background: #334155; }
+    .recent-item .name { font-size: 14px; color: #e2e8f0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .recent-item .date { font-size: 12px; color: #64748b; white-space: nowrap; }
+
+    /* Render view */
+    .render-view { display: none; flex-direction: column; min-height: 100dvh; }
+    .render-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #1e293b; border-bottom: 1px solid #334155; flex-shrink: 0; z-index: 50; }
+    .back-btn { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; border: none; background: #334155; color: #e2e8f0; cursor: pointer; flex-shrink: 0; -webkit-tap-highlight-color: transparent; }
+    .back-btn:active { background: #475569; }
+    .file-name { font-size: 14px; font-weight: 500; color: #e2e8f0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+    .render-container { flex: 1; background: #ffffff; overflow: auto; }
+    #render-root { min-height: 100%; }
+
+    /* Error display */
+    .error-box { margin: 16px; padding: 16px; border-radius: 12px; background: #450a0a; border: 1px solid #7f1d1d; }
+    .error-box h3 { font-size: 15px; color: #fca5a5; margin-bottom: 8px; }
+    .error-box pre { font-size: 12px; color: #fca5a5; white-space: pre-wrap; word-break: break-all; font-family: 'SF Mono', Monaco, monospace; line-height: 1.5; }
+    .error-box .source-toggle { margin-top: 12px; padding: 8px 14px; border-radius: 8px; border: 1px solid #7f1d1d; background: transparent; color: #fca5a5; font-size: 13px; cursor: pointer; }
+    .error-box .source-code { margin-top: 12px; padding: 12px; border-radius: 8px; background: #1e293b; max-height: 300px; overflow: auto; display: none; }
+    .error-box .source-code pre { color: #94a3b8; }
+
+    /* Loading */
+    .loading { display: flex; align-items: center; justify-content: center; padding: 48px; color: #64748b; font-size: 15px; gap: 10px; }
+    .spinner { width: 20px; height: 20px; border: 2px solid #334155; border-top-color: #60a5fa; border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <!-- Home Screen -->
+  <div class="home" id="home-screen">
+    <div style="text-align: center;">
+      <div style="font-size: 48px; margin-bottom: 12px;">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+      </div>
+      <h1>JSX Renderer</h1>
+      <p style="margin-top: 8px;">Claude Artifact .jsx 파일을<br/>바로 열어볼 수 있습니다</p>
+    </div>
+
+    <label class="file-btn" for="file-input">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      파일 선택
+    </label>
+    <input type="file" id="file-input" accept=".jsx,.tsx" style="display:none" />
+
+    <div class="recent" id="recent-section" style="display:none">
+      <h2>최근 파일</h2>
+      <div class="recent-list" id="recent-list"></div>
+    </div>
+  </div>
+
+  <!-- Render Screen -->
+  <div class="render-view" id="render-view">
+    <div class="render-header">
+      <button class="back-btn" id="back-btn" aria-label="뒤로 가기">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="file-name" id="file-name"></span>
+    </div>
+    <div class="render-container">
+      <div id="render-root"></div>
+    </div>
+  </div>
+
+  <script>
+    // ── Library registry: module name → { global, url } ──
+    const LIB_REGISTRY = {
+      'react': { global: 'React', preloaded: true },
+      'react-dom': { global: 'ReactDOM', preloaded: true },
+      'react-dom/client': { global: 'ReactDOM', preloaded: true },
+      'recharts': {
+        global: 'Recharts',
+        url: 'https://unpkg.com/recharts@2/umd/Recharts.js'
+      },
+      'lucide-react': {
+        global: 'lucideReact',
+        url: 'https://unpkg.com/lucide-react@latest/dist/umd/lucide-react.js'
+      },
+      'framer-motion': {
+        global: 'Motion',
+        url: 'https://unpkg.com/framer-motion@11/dist/framer-motion.js'
+      },
+      'lodash': {
+        global: '_',
+        url: 'https://unpkg.com/lodash@4/lodash.min.js'
+      },
+      'date-fns': {
+        global: 'dateFns',
+        url: 'https://unpkg.com/date-fns@3/cdn.min.js'
+      },
+      'papaparse': {
+        global: 'Papa',
+        url: 'https://unpkg.com/papaparse@5/papaparse.min.js'
+      },
+      '@heroicons/react/24/outline': {
+        global: 'HeroiconsOutline',
+        url: null,
+        skip: true
+      },
+      '@heroicons/react/24/solid': {
+        global: 'HeroiconsSolid',
+        url: null,
+        skip: true
+      }
+    };
+
+    // ── State ──
+    const homeScreen = document.getElementById('home-screen');
+    const renderView = document.getElementById('render-view');
+    const fileInput = document.getElementById('file-input');
+    const backBtn = document.getElementById('back-btn');
+    const fileNameEl = document.getElementById('file-name');
+    const renderRoot = document.getElementById('render-root');
+    const recentSection = document.getElementById('recent-section');
+    const recentList = document.getElementById('recent-list');
+
+    // ── Recent files (localStorage) ──
+    function getRecents() {
+      try { return JSON.parse(localStorage.getItem('jsx-recents') || '[]'); } catch { return []; }
+    }
+    function addRecent(name, code) {
+      let recents = getRecents().filter(r => r.name !== name);
+      recents.unshift({ name, code, date: Date.now() });
+      recents = recents.slice(0, 10);
+      localStorage.setItem('jsx-recents', JSON.stringify(recents));
+      showRecents();
+    }
+    function showRecents() {
+      const recents = getRecents();
+      if (recents.length === 0) { recentSection.style.display = 'none'; return; }
+      recentSection.style.display = 'block';
+      recentList.innerHTML = recents.map((r, i) => {
+        const d = new Date(r.date);
+        const dateStr = `${d.getMonth()+1}/${d.getDate()}`;
+        return `<div class="recent-item" data-idx="${i}">
+          <span class="name">${escapeHtml(r.name)}</span>
+          <span class="date">${dateStr}</span>
+        </div>`;
+      }).join('');
+      recentList.querySelectorAll('.recent-item').forEach(el => {
+        el.addEventListener('click', () => {
+          const r = getRecents()[parseInt(el.dataset.idx)];
+          if (r) renderJSX(r.name, r.code);
+        });
+      });
+    }
+    function escapeHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Navigation ──
+    function showRender() {
+      homeScreen.style.display = 'none';
+      renderView.style.display = 'flex';
+    }
+    function showHome() {
+      renderView.style.display = 'none';
+      homeScreen.style.display = 'flex';
+      renderRoot.innerHTML = '';
+      showRecents();
+    }
+    backBtn.addEventListener('click', showHome);
+
+    // ── File input ──
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        renderJSX(file.name, reader.result);
+        addRecent(file.name, reader.result);
+      };
+      reader.readAsText(file);
+      fileInput.value = '';
+    });
+
+    // ── Import processing ──
+    function processImports(code) {
+      const neededLibs = [];
+      const importMap = {};
+
+      // Match import statements
+      const importRegex = /^\s*import\s+(.+?)\s+from\s+['"]([^'"]+)['"]\s*;?\s*$/gm;
+      let match;
+      const imports = [];
+
+      while ((match = importRegex.exec(code)) !== null) {
+        imports.push({ full: match[0], specifiers: match[1], module: match[2] });
+      }
+
+      let processedCode = code;
+
+      for (const imp of imports) {
+        const lib = LIB_REGISTRY[imp.module];
+        if (!lib) {
+          // Unknown import — strip it and add a warning comment
+          processedCode = processedCode.replace(imp.full, `/* [JSX Renderer] unsupported import: ${imp.module} */`);
+          continue;
+        }
+
+        if (lib.skip) {
+          processedCode = processedCode.replace(imp.full, `/* [JSX Renderer] ${imp.module} not available */`);
+          continue;
+        }
+
+        if (!lib.preloaded && lib.url) {
+          neededLibs.push(lib);
+        }
+
+        // Build variable declarations from import specifiers
+        const globalName = lib.global;
+        let replacement = '';
+
+        const specStr = imp.specifiers.trim();
+
+        // import Default from 'mod'
+        // import Default, { a, b } from 'mod'
+        // import { a, b } from 'mod'
+        // import * as X from 'mod'
+
+        if (specStr.startsWith('* as ')) {
+          const alias = specStr.replace('* as ', '').trim();
+          replacement = `const ${alias} = window["${globalName}"];`;
+        } else {
+          const parts = specStr.split(',').map(s => s.trim());
+          const lines = [];
+
+          for (const part of parts) {
+            if (part.startsWith('{') || part.includes('{')) {
+              // Named imports: { a, b, c as d }
+              const inner = part.replace(/[{}]/g, '').trim();
+              if (inner) {
+                const names = inner.split(',').map(n => n.trim()).filter(Boolean);
+                const destructured = names.map(n => {
+                  const asParts = n.split(/\s+as\s+/);
+                  return asParts.length === 2 ? `${asParts[0].trim()}: ${asParts[1].trim()}` : n;
+                }).join(', ');
+                lines.push(`const { ${destructured} } = window["${globalName}"];`);
+              }
+            } else if (part.endsWith('}')) {
+              // continuation of named — skip, handled above
+            } else if (part) {
+              // Default import
+              lines.push(`const ${part} = window["${globalName}"];`);
+            }
+          }
+          replacement = lines.join('\n');
+        }
+
+        processedCode = processedCode.replace(imp.full, replacement);
+      }
+
+      // Ensure React is always available (needed for JSX transpilation)
+      if (!processedCode.includes('const React = ') && !processedCode.includes('var React = ')) {
+        processedCode = 'const React = window["React"];\n' + processedCode;
+      }
+
+      // Handle export default
+      processedCode = processedCode.replace(
+        /export\s+default\s+function\s+(\w+)/g,
+        'function $1'
+      );
+      processedCode = processedCode.replace(
+        /export\s+default\s+/g,
+        'const __DefaultExport__ = '
+      );
+
+      // Extract the component name from the original default export
+      const defaultFnMatch = code.match(/export\s+default\s+function\s+(\w+)/);
+      const componentName = defaultFnMatch ? defaultFnMatch[1] : '__DefaultExport__';
+
+      // Handle named exports (just strip the export keyword)
+      processedCode = processedCode.replace(/export\s+(const|let|var|function|class)\s+/g, '$1 ');
+
+      return { processedCode, neededLibs, componentName };
+    }
+
+    // ── Load external libraries dynamically ──
+    async function loadLibraries(libs) {
+      const uniqueUrls = [...new Set(libs.filter(l => l.url).map(l => l.url))];
+      await Promise.all(uniqueUrls.map(url => {
+        if (document.querySelector(`script[src="${url}"]`)) return Promise.resolve();
+        return new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = url;
+          s.onload = resolve;
+          s.onerror = () => reject(new Error(`Failed to load: ${url}`));
+          document.head.appendChild(s);
+        });
+      }));
+    }
+
+    // ── Render JSX ──
+    async function renderJSX(fileName, code) {
+      fileNameEl.textContent = fileName;
+      showRender();
+      renderRoot.innerHTML = '<div class="loading"><div class="spinner"></div>렌더링 중...</div>';
+
+      try {
+        // Process imports and get needed libraries
+        const { processedCode, neededLibs, componentName } = processImports(code);
+
+        // Load any external libraries
+        if (neededLibs.length > 0) {
+          renderRoot.innerHTML = '<div class="loading"><div class="spinner"></div>라이브러리 로딩 중...</div>';
+          await loadLibraries(neededLibs);
+        }
+
+        // Transpile with Babel
+        const transformed = Babel.transform(processedCode, {
+          presets: ['react'],
+          filename: fileName
+        });
+
+        // Execute and render
+        const execCode = `
+          (function() {
+            ${transformed.code}
+            return typeof ${componentName} !== 'undefined' ? ${componentName} : null;
+          })()
+        `;
+
+        const Component = eval(execCode);
+
+        if (!Component) {
+          throw new Error('컴포넌트를 찾을 수 없습니다. export default가 있는지 확인해주세요.');
+        }
+
+        // Render with React 18
+        renderRoot.innerHTML = '';
+        const root = ReactDOM.createRoot(renderRoot);
+        root.render(React.createElement(Component));
+
+      } catch (err) {
+        renderRoot.innerHTML = '';
+        const errorBox = document.createElement('div');
+        errorBox.className = 'error-box';
+        errorBox.innerHTML = `
+          <h3>렌더링 실패</h3>
+          <pre>${escapeHtml(err.message)}</pre>
+          <button class="source-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='block'?'none':'block'">
+            원본 코드 보기
+          </button>
+          <div class="source-code"><pre>${escapeHtml(code)}</pre></div>
+        `;
+        renderRoot.appendChild(errorBox);
+      }
+    }
+
+    // ── Init ──
+    showRecents();
+
+    // ── Service Worker ──
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>
