@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jsx-renderer-v1';
+const CACHE_NAME = 'jsx-renderer-v2';
 const PRECACHE_URLS = [
   './',
   './index.html',
@@ -26,17 +26,30 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
-        // Cache CDN resources on first fetch
-        if (response.ok && event.request.url.startsWith('https://unpkg.com/')) {
+  // Network-first for same-origin (HTML, JS) — always get latest version
+  // Cache-first for CDN resources — they don't change
+  if (event.request.url.startsWith(self.location.origin)) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
-        return response;
-      });
-    })
-  );
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+  } else {
+    event.respondWith(
+      caches.match(event.request).then(cached => {
+        if (cached) return cached;
+        return fetch(event.request).then(response => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        });
+      })
+    );
+  }
 });
