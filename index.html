@@ -41,6 +41,11 @@
     .recent-item:active { background: #334155; }
     .recent-item .name { font-size: 18px; font-weight: 600; color: #e2e8f0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .recent-item .date { font-size: 15px; font-weight: 500; color: #64748b; white-space: nowrap; }
+    .recent-item .del { width: 32px; height: 32px; border-radius: 8px; border: none; background: #334155; color: #cbd5e1; font-size: 18px; font-weight: 700; cursor: pointer; flex-shrink: 0; -webkit-tap-highlight-color: transparent; }
+    .recent-item .del:active { background: #475569; }
+    .recent-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .recent-clear { background: none; border: none; color: #94a3b8; font-size: 14px; font-weight: 600; cursor: pointer; padding: 4px 8px; -webkit-tap-highlight-color: transparent; }
+    .recent-clear:active { color: #f87171; }
 
     /* Render view */
     .render-view { display: none; flex-direction: column; min-height: 100dvh; }
@@ -84,11 +89,14 @@
     <input type="file" id="file-input" accept="*/*" style="display:none" />
 
     <div class="recent" id="recent-section" style="display:none">
-      <h2>최근 파일</h2>
+      <div class="recent-header">
+        <h2>최근 파일</h2>
+        <button class="recent-clear" id="recent-clear-btn">전체 삭제</button>
+      </div>
       <div class="recent-list" id="recent-list"></div>
     </div>
 
-    <div style="position: fixed; bottom: 12px; left: 0; right: 0; text-align: center; font-size: 11px; color: #475569;">v2024.0406.6</div>
+    <div style="position: fixed; bottom: 12px; left: 0; right: 0; text-align: center; font-size: 11px; color: #475569;">v2024.0406.7</div>
   </div>
 
   <!-- Render Screen -->
@@ -167,6 +175,17 @@
       localStorage.setItem('jsx-recents', JSON.stringify(recents));
       showRecents();
     }
+    function removeRecent(idx) {
+      const recents = getRecents();
+      recents.splice(idx, 1);
+      localStorage.setItem('jsx-recents', JSON.stringify(recents));
+      showRecents();
+    }
+    function clearRecents() {
+      if (!confirm('최근 파일 전체를 삭제할까요?')) return;
+      localStorage.removeItem('jsx-recents');
+      showRecents();
+    }
     function showRecents() {
       const recents = getRecents();
       if (recents.length === 0) { recentSection.style.display = 'none'; return; }
@@ -177,10 +196,16 @@
         return `<div class="recent-item" data-idx="${i}">
           <span class="name">${escapeHtml(r.name)}</span>
           <span class="date">${dateStr}</span>
+          <button class="del" data-del="${i}" aria-label="삭제">×</button>
         </div>`;
       }).join('');
       recentList.querySelectorAll('.recent-item').forEach(el => {
-        el.addEventListener('click', () => {
+        el.addEventListener('click', (e) => {
+          if (e.target.classList.contains('del')) {
+            e.stopPropagation();
+            removeRecent(parseInt(e.target.dataset.del));
+            return;
+          }
           const r = getRecents()[parseInt(el.dataset.idx)];
           if (r) renderJSX(r.name, r.code);
         });
@@ -202,6 +227,7 @@
       showRecents();
     }
     backBtn.addEventListener('click', showHome);
+    document.getElementById('recent-clear-btn').addEventListener('click', clearRecents);
 
     // ── File input ──
     fileInput.addEventListener('change', (e) => {
